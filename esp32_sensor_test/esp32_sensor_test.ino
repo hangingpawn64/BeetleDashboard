@@ -72,7 +72,7 @@ const uint8_t TOF_ADDRESSES[7] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36};
 const uint8_t TOF_XSHUT_PINS[7] = {TOF1_XSHUT, TOF2_XSHUT, TOF3_XSHUT, TOF4_XSHUT, TOF5_XSHUT, TOF6_XSHUT, TOF7_XSHUT};
 
 // ============================================
-// ENCODER VARIABLES (Volatile for ISR)
+// ENCODER VARIABLES (Volatile for ISR)+
 // ============================================
 
 volatile long encoderCounts[6] = {0, 0, 0, 0, 0, 0};
@@ -185,35 +185,45 @@ void setupEncoders() {
 
 void setupToFSensors() {
   Serial.println("Initializing ToF Sensors...");
-  
-  // First, set all XSHUT pins LOW to disable all sensors
+
+  // Disable all sensors
   for (int i = 0; i < 7; i++) {
     pinMode(TOF_XSHUT_PINS[i], OUTPUT);
     digitalWrite(TOF_XSHUT_PINS[i], LOW);
   }
-  delay(10);
-  
-  // Enable and configure each sensor one by one
+  delay(50);
+
   int connectedCount = 0;
+
   for (int i = 0; i < 7; i++) {
-    // Enable this sensor
+    // Enable one sensor
     digitalWrite(TOF_XSHUT_PINS[i], HIGH);
-    delay(10);
-    
-    // Initialize with default address first
-    if (tof[i].begin(0x29)) {
-      // Change to unique address
-      if (tof[i].setAddress(TOF_ADDRESSES[i])) {
-        tofConnected[i] = true;
-        connectedCount++;
-      }
+    delay(50);
+
+    if (tof[i].begin()) {
+      tof[i].setAddress(TOF_ADDRESSES[i]);
+      delay(10);
+
+      tofConnected[i] = true;
+      connectedCount++;
+
+      Serial.print("ToF ");
+      Serial.print(i);
+      Serial.print(" OK @ 0x");
+      Serial.println(TOF_ADDRESSES[i], HEX);
+    } else {
+      Serial.print("ToF ");
+      Serial.print(i);
+      Serial.println(" FAILED");
     }
   }
-  
+
   Serial.print("ToF: ");
   Serial.print(connectedCount);
   Serial.println("/7 connected");
 }
+
+
 
 // ============================================
 // READ FUNCTIONS
@@ -328,14 +338,14 @@ void setup() {
 void loop() {
   // Read all sensors
   readMPU();
-  readEncoders();
+  // readEncoders();
   readToF();
   
   // Send data at specified interval
   unsigned long currentTime = millis();
   if (currentTime - lastSendTime >= SEND_INTERVAL_MS) {
     lastSendTime = currentTime;
-    sendSerialData();
+     sendSerialData();
   }
   
   // Small delay to prevent overwhelming the CPU
