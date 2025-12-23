@@ -1,6 +1,6 @@
 /*
  * ============================================
- * BEETLE ROBOT - ESP32 WROOM SENSOR TEST
+ * BEETLE ROBOT - ESP32 SERIAL SENSOR OUTPUT
  * ============================================
  * 
  * Sensors:
@@ -8,19 +8,15 @@
  *   - 6 Encoders (2 pins each - A/B channels)
  *   - 7 VL53L0X ToF Sensors (I2C with XSHUT pins)
  * 
- * Data Format sent to dashboard:
+ * Data Format (Serial output):
  *   ax,ay,az,gx,gy,gz,enc1,enc2,enc3,enc4,enc5,enc6,tof1,tof2,tof3,tof4,tof5,tof6,tof7
  * 
  * Libraries Required:
  *   - Adafruit MPU6050
  *   - Adafruit VL53L0X
- *   - WiFi (built-in)
- *   - HTTPClient (built-in)
  */
 
 #include <Wire.h>
-#include <WiFi.h>
-#include <HTTPClient.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_VL53L0X.h>
@@ -29,13 +25,8 @@
 // CONFIGURATION
 // ============================================
 
-// WiFi Credentials
-const char* WIFI_SSID = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-
-// Dashboard Server
-const char* SERVER_URL = "http://YOUR_COMPUTER_IP:5000/update";
-const int SEND_INTERVAL_MS = 100;  // Send data every 100ms
+#define SERIAL_BAUD 115200
+#define SEND_INTERVAL_MS 100  // Send data every 100ms
 
 // ============================================
 // PIN DEFINITIONS
@@ -101,7 +92,6 @@ int tofDist[7];    // ToF distances in mm
 
 bool mpuConnected = false;
 bool tofConnected[7] = {false};
-bool wifiConnected = false;
 
 unsigned long lastSendTime = 0;
 
@@ -164,27 +154,6 @@ void (*encoderISRs[6])() = {encoderISR0, encoderISR1, encoderISR2, encoderISR3, 
 // SETUP FUNCTIONS
 // ============================================
 
-void setupWiFi() {
-  Serial.print("Connecting to WiFi");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
-  }
-  
-  if (WiFi.status() == WL_CONNECTED) {
-    wifiConnected = true;
-    Serial.println("\n✓ WiFi Connected!");
-    Serial.print("  IP Address: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("\n✗ WiFi Failed! Running in offline mode.");
-  }
-}
-
 void setupMPU() {
   Serial.print("Initializing MPU6050...");
   
@@ -196,12 +165,9 @@ void setupMPU() {
     mpu.setGyroRange(MPU6050_RANGE_500_DEG);
     mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
     
-    Serial.println(" ✓ Connected!");
-    Serial.println("  Accel Range: ±8G");
-    Serial.println("  Gyro Range: ±500°/s");
+    Serial.println(" OK");
   } else {
-    Serial.println(" ✗ Failed!");
-    Serial.println("  Check wiring: SDA=21, SCL=22, VCC=3.3V");
+    Serial.println(" FAILED");
   }
 }
 
@@ -212,10 +178,9 @@ void setupEncoders() {
     pinMode(ENC_A_PINS[i], INPUT_PULLUP);
     pinMode(ENC_B_PINS[i], INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(ENC_A_PINS[i]), encoderISRs[i], CHANGE);
-    Serial.printf("  Encoder %d: Pins %d/%d ✓\n", i+1, ENC_A_PINS[i], ENC_B_PINS[i]);
   }
   
-  Serial.println("  All encoders initialized!");
+  Serial.println("Encoders OK");
 }
 
 void setupToFSensors() {
@@ -229,6 +194,7 @@ void setupToFSensors() {
   delay(10);
   
   // Enable and configure each sensor one by one
+  int connectedCount = 0;
   for (int i = 0; i < 7; i++) {
     // Enable this sensor
     digitalWrite(TOF_XSHUT_PINS[i], HIGH);
@@ -239,19 +205,14 @@ void setupToFSensors() {
       // Change to unique address
       if (tof[i].setAddress(TOF_ADDRESSES[i])) {
         tofConnected[i] = true;
-        Serial.printf("  ToF %d: Address 0x%02X ✓\n", i+1, TOF_ADDRESSES[i]);
+        connectedCount++;
       }
-    } else {
-      Serial.printf("  ToF %d: ✗ Not found\n", i+1);
     }
   }
   
-  // Count connected sensors
-  int connectedCount = 0;
-  for (int i = 0; i < 7; i++) {
-    if (tofConnected[i]) connectedCount++;
-  }
-  Serial.printf("  %d/7 ToF sensors connected\n", connectedCount);
+  Serial.print("ToF: ");
+  Serial.print(connectedCount);
+  Serial.println("/7 connected");
 }
 
 // ============================================
@@ -305,65 +266,32 @@ void readToF() {
 }
 
 // ============================================
-// DATA TRANSMISSION
+// SERIAL OUTPUT
 // ============================================
 
-void sendDataToServer() {
-  if (!wifiConnected || WiFi.status() != WL_CONNECTED) {
-    return;
-  }
-  
-  // Build data string
-  String data = String(ax, 2) + "," +
-                String(ay, 2) + "," +
-                String(az, 2) + "," +
-                String(gx, 2) + "," +
-                String(gy, 2) + "," +
-                String(gz, 2) + "," +
-                String(enc[0]) + "," +
-                String(enc[1]) + "," +
-                String(enc[2]) + "," +
-                String(enc[3]) + "," +
-                String(enc[4]) + "," +
-                String(enc[5]) + "," +
-                String(tofDist[0]) + "," +
-                String(tofDist[1]) + "," +
-                String(tofDist[2]) + "," +
-                String(tofDist[3]) + "," +
-                String(tofDist[4]) + "," +
-                String(tofDist[5]) + "," +
-                String(tofDist[6]);
-  
-  HTTPClient http;
-  http.begin(SERVER_URL);
-  http.addHeader("Content-Type", "text/plain");
-  
-  int responseCode = http.POST(data);
-  
-  if (responseCode != 200) {
-    Serial.printf("HTTP Error: %d\n", responseCode);
-  }
-  
-  http.end();
-}
-
-void printDebugData() {
-  Serial.println("\n========== SENSOR DATA ==========");
-  
-  Serial.println("--- MPU6050 ---");
-  Serial.printf("  Accel: X=%.2f Y=%.2f Z=%.2f m/s²\n", ax, ay, az);
-  Serial.printf("  Gyro:  X=%.2f Y=%.2f Z=%.2f °/s\n", gx, gy, gz);
-  
-  Serial.println("--- Encoders ---");
-  Serial.printf("  E1=%ld E2=%ld E3=%ld E4=%ld E5=%ld E6=%ld\n", 
-                enc[0], enc[1], enc[2], enc[3], enc[4], enc[5]);
-  
-  Serial.println("--- ToF Sensors (mm) ---");
-  Serial.printf("  T1=%d T2=%d T3=%d T4=%d T5=%d T6=%d T7=%d\n",
-                tofDist[0], tofDist[1], tofDist[2], tofDist[3], 
-                tofDist[4], tofDist[5], tofDist[6]);
-  
-  Serial.println("==================================");
+void sendSerialData() {
+  // Format: ax,ay,az,gx,gy,gz,enc1,enc2,enc3,enc4,enc5,enc6,tof1,tof2,tof3,tof4,tof5,tof6,tof7
+  // Prefix with "DATA:" for easy parsing
+  Serial.print("DATA:");
+  Serial.print(ax, 2); Serial.print(",");
+  Serial.print(ay, 2); Serial.print(",");
+  Serial.print(az, 2); Serial.print(",");
+  Serial.print(gx, 2); Serial.print(",");
+  Serial.print(gy, 2); Serial.print(",");
+  Serial.print(gz, 2); Serial.print(",");
+  Serial.print(enc[0]); Serial.print(",");
+  Serial.print(enc[1]); Serial.print(",");
+  Serial.print(enc[2]); Serial.print(",");
+  Serial.print(enc[3]); Serial.print(",");
+  Serial.print(enc[4]); Serial.print(",");
+  Serial.print(enc[5]); Serial.print(",");
+  Serial.print(tofDist[0]); Serial.print(",");
+  Serial.print(tofDist[1]); Serial.print(",");
+  Serial.print(tofDist[2]); Serial.print(",");
+  Serial.print(tofDist[3]); Serial.print(",");
+  Serial.print(tofDist[4]); Serial.print(",");
+  Serial.print(tofDist[5]); Serial.print(",");
+  Serial.println(tofDist[6]);
 }
 
 // ============================================
@@ -371,13 +299,11 @@ void printDebugData() {
 // ============================================
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(SERIAL_BAUD);
   delay(1000);
   
-  Serial.println("\n");
-  Serial.println("╔═══════════════════════════════════════════╗");
-  Serial.println("║     BEETLE ROBOT - ESP32 SENSOR TEST      ║");
-  Serial.println("╚═══════════════════════════════════════════╝");
+  Serial.println();
+  Serial.println("=== BEETLE ESP32 SENSOR NODE ===");
   Serial.println();
   
   // Initialize I2C
@@ -385,19 +311,14 @@ void setup() {
   Wire.setClock(400000);  // 400kHz I2C
   
   // Setup all components
-  setupWiFi();
-  Serial.println();
   setupMPU();
-  Serial.println();
   setupEncoders();
-  Serial.println();
   setupToFSensors();
-  Serial.println();
   
-  Serial.println("╔═══════════════════════════════════════════╗");
-  Serial.println("║           SETUP COMPLETE!                 ║");
-  Serial.println("╚═══════════════════════════════════════════╝");
-  Serial.println("\nStarting sensor readings...\n");
+  Serial.println();
+  Serial.println("=== SETUP COMPLETE ===");
+  Serial.println("Sending data as: DATA:ax,ay,az,gx,gy,gz,enc1-6,tof1-7");
+  Serial.println();
 }
 
 // ============================================
@@ -410,19 +331,11 @@ void loop() {
   readEncoders();
   readToF();
   
-  // Send to server at specified interval
+  // Send data at specified interval
   unsigned long currentTime = millis();
   if (currentTime - lastSendTime >= SEND_INTERVAL_MS) {
     lastSendTime = currentTime;
-    
-    sendDataToServer();
-    
-    // Print debug output every 500ms (every 5th send)
-    static int printCounter = 0;
-    if (++printCounter >= 5) {
-      printCounter = 0;
-      printDebugData();
-    }
+    sendSerialData();
   }
   
   // Small delay to prevent overwhelming the CPU

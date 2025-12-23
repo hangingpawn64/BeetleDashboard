@@ -1,12 +1,18 @@
 # Beetle Dashboard - Requirements
 # Install with: pip install -r requirements.txt
 
-flask>=2.0.0
+Flask==3.0.0
+Werkzeug==3.0.1
+Jinja2==3.1.2
+MarkupSafe==2.1.3
+itsdangerous==2.1.2
+click==8.1.7
+blinker==1.7.0
+Flask-Compress==1.14
+flask-cors==4.0.0
 
-# Optional dependencies for sensor integration:
-# smbus2          # For I2C communication (MPU6050, ToF sensors)
-# RPi.GPIO        # For Raspberry Pi GPIO (encoders)
-# pyserial        # For serial communication with ESP32/Arduino
-# opencv-python   # For camera streaming
-# picamera2       # For Raspberry Pi Camera Module
-# vl53l0x         # For VL53L0X ToF sensor
+# Serial communication
+pyserial==3.5
+
+# HTTP client for serial reader
+requests==2.31.0
