@@ -79,6 +79,11 @@ def read_serial_and_send(port, baud):
                 except UnicodeDecodeError:
                     continue
                 
+                # Print non-data lines (debug info)
+                if not line.startswith(DATA_PREFIX):
+                    print(f"[ESP32] {line}")
+                    continue
+
                 # Check for data line (starts with DATA:)
                 if line.startswith(DATA_PREFIX):
                     data = line[len(DATA_PREFIX):]  # Remove prefix
