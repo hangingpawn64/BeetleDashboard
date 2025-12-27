@@ -79,28 +79,47 @@ def read_serial_and_send(port, baud):
                 except UnicodeDecodeError:
                     continue
                 
+                # Check if line looks like data
+                data = line
+                is_data = False
+                
+                if line.startswith(DATA_PREFIX):
+                    data = line[len(DATA_PREFIX):]
+                    is_data = True
+                elif "," in line:
+                    # Check if it looks like our CSV data (at least 17 values)
+                    # 6 MPU + 6 Enc + 5 ToF = 17 values
+                    if len(data.split(',')) >= 17:
+                        is_data = True
+
                 # Print non-data lines (debug info)
-                if not line.startswith(DATA_PREFIX):
+                if not is_data:
                     print(f"[ESP32] {line}")
                     continue
 
-                # Check for data line (starts with DATA:)
-                if line.startswith(DATA_PREFIX):
-                    data = line[len(DATA_PREFIX):]  # Remove prefix
-                    
-                    # Send to Flask
-                    try:
-                        response = requests.post(FLASK_URL, data=data, timeout=1)
-                        if response.status_code == 200:
-                            packets_sent += 1
-                        else:
-                            packets_failed += 1
-                            print(f"✗ Server error: {response.status_code}")
-                    except requests.exceptions.RequestException as e:
+                # Process data
+                parts = data.split(',')
+                
+                # Pad with zeros if we have fewer than 19 values (e.g. missing ToF sensors)
+                # App expects 19: 6 MPU + 6 Enc + 7 ToF
+                while len(parts) < 19:
+                    parts.append("0")
+                
+                data = ",".join(parts)
+                
+                # Send to Flask
+                try:
+                    response = requests.post(FLASK_URL, data=data, timeout=1)
+                    if response.status_code == 200:
+                        packets_sent += 1
+                    else:
                         packets_failed += 1
-                        # Only print occasional errors
-                        if packets_failed % 10 == 1:
-                            print(f"✗ Connection error: {e}")
+                        print(f"✗ Server error: {response.status_code}")
+                except requests.exceptions.RequestException as e:
+                    packets_failed += 1
+                    # Only print occasional errors
+                    if packets_failed % 10 == 1:
+                        print(f"✗ Connection error: {e}")
                 
                 # Print status every 5 seconds
                 if time.time() - last_status_time >= 5:

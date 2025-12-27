@@ -155,6 +155,8 @@ void loop() {
   }
 
   // Serial CSV
+  // Serial CSV
+  Serial.print("DATA:");
   Serial.print(ax,2); Serial.print(",");
   Serial.print(ay,2); Serial.print(",");
   Serial.print(az,2); Serial.print(",");
@@ -163,9 +165,13 @@ void loop() {
   Serial.print(gz,2); Serial.print(",");
 
   for (int i=0;i<6;i++){ Serial.print(enc[i]); Serial.print(","); }
-  for (int i=0;i<5;i++){
-    Serial.print(dist[i]);
-    if (i<4) Serial.print(",");
+  
+  // ToF (7 sensors expected by dashboard)
+  for (int i=0;i<7;i++){
+    if (i < 5) Serial.print(dist[i]);
+    else Serial.print(0); // Pad missing sensors
+    
+    if (i<6) Serial.print(",");
   }
   Serial.println();
 }
