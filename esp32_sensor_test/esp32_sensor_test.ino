@@ -141,7 +141,9 @@ void loop() {
   // Encoders
   long enc[6];
   noInterrupts();
-  memcpy(enc, encoderCount, sizeof(enc));
+    for (int i = 0; i < 6; i++) {
+      enc[i] = encoderCount[i];
+    }
   interrupts();
 
   // ToF

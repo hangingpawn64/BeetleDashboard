@@ -439,20 +439,32 @@
 
         /* Responsive */
         @media (max-width: 1000px) {
+            body {
+                overflow-y: auto;
+                /* Allow scrolling on mobile */
+            }
+
             .container {
                 flex-direction: column;
                 height: auto;
-                overflow-y: auto;
+                overflow-y: visible;
             }
 
             .left-panel,
             .right-panel {
                 width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+                padding: 15px;
             }
 
             .map-container {
-                width: 350px;
-                height: 350px;
+                width: 85vw;
+                height: 85vw;
+                max-width: 450px;
+                max-height: 450px;
+                margin: 10px 0;
             }
 
             .bottom-section {
@@ -463,7 +475,40 @@
                 width: 100%;
                 flex-direction: row;
                 flex-wrap: wrap;
-                justify-content: space-around;
+                justify-content: space-between;
+                gap: 10px;
+            }
+
+            .encoder-group {
+                flex: 1;
+                min-width: 120px;
+                margin-bottom: 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .mpu-section {
+                flex-direction: column;
+            }
+
+            .rover-diagram {
+                transform: scale(0.8);
+                transform-origin: center top;
+                margin-bottom: -50px;
+                /* Compensate for empty space after scaling */
+            }
+
+            .map-info {
+                gap: 8px;
+            }
+
+            .info-box {
+                min-width: 60px;
+                padding: 6px 10px;
+            }
+
+            .info-value {
+                font-size: 0.9rem;
             }
         }
     </style>

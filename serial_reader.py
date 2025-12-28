@@ -115,6 +115,7 @@ def read_serial_and_send(port, baud):
                     else:
                         packets_failed += 1
                         print(f"✗ Server error: {response.status_code}")
+                        print(f"  Payload: {data}")
                 except requests.exceptions.RequestException as e:
                     packets_failed += 1
                     # Only print occasional errors
