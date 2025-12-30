@@ -51,9 +51,14 @@
             height: 100%;
             border-radius: 50%;
             border: 2px solid #00ff88;
-            background: #B2AC88;
+            background:
+                radial-gradient(circle at center, #1f2937 0%, #111827 100%),
+                linear-gradient(rgba(0, 255, 136, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 136, 0.1) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
             position: relative;
             overflow: hidden;
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
         }
 
         .map-canvas {
@@ -128,18 +133,22 @@
             border-radius: 6px;
             padding: 8px 15px;
             text-align: center;
-            min-width: 80px;
+            min-width: 120px;
+            height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .info-label {
-            font-size: 0.65rem;
-            color: #6b7280;
+            font-size: 1rem;
+            color: #ffffff;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
         .info-value {
-            font-size: 1rem;
+            font-size: 1.2rem;
             color: #00ff88;
             font-weight: 600;
             font-family: 'Courier New', monospace;
@@ -210,7 +219,7 @@
 
         .mpu-label {
             font-size: 0.8rem;
-            color: #6b7280;
+            color: #ffffff;
             font-weight: 500;
         }
 
@@ -251,7 +260,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 200px;
+            height: 300px;
             position: relative;
             overflow: hidden;
         }
@@ -343,13 +352,15 @@
             color: #a78bfa;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 10px;
+            margin-bottom: 0px;
         }
 
         .rover-diagram {
             position: relative;
-            width: 350px;
-            height: 260px;
+            width: 500px;
+            height: 235px;
+            margin-top: 10px;
+            padding-top: 0;
         }
 
         .rover-body {
@@ -357,11 +368,15 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 120px;
-            height: 85px;
-            background: linear-gradient(145deg, #2d2d4a, #1a1a30);
-            border: 2px solid #a78bfa;
-            border-radius: 10px;
+            width: 280px;
+            height: 210px;
+            /* background: linear-gradient(145deg, #2d2d4a, #1a1a30);
+            border: 2px solid #a78bfa; */
+            /* border-radius: 10px; */
+            background-image: url('/static/rover.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -370,12 +385,13 @@
             color: #a78bfa;
             text-transform: uppercase;
             letter-spacing: 1px;
+            z-index: 10;
         }
 
         .tof-sensor {
             position: absolute;
-            width: 70px;
-            height: 48px;
+            width: 90px;
+            height: 60px;
             background: linear-gradient(145deg, rgba(20, 20, 35, 0.9), rgba(10, 10, 20, 0.9));
             border: 1px solid rgba(100, 200, 255, 0.5);
             border-radius: 5px;
@@ -399,40 +415,32 @@
         }
 
         /* ToF Positions - 7 sensors */
-        .tof-1 {
-            top: 5px;
-            left: 5px;
-        }
 
-        .tof-2 {
-            top: 5px;
-            right: 5px;
-        }
 
         .tof-3 {
             top: 50%;
-            left: 0;
+            left: 30px;
             transform: translateY(-50%);
         }
 
         .tof-4 {
             top: 50%;
-            right: 0;
+            right: 30px;
             transform: translateY(-50%);
         }
 
         .tof-5 {
-            bottom: 5px;
-            left: 5px;
+            bottom: -60px;
+            left: 60px;
         }
 
         .tof-6 {
-            bottom: 5px;
-            right: 5px;
+            bottom: -60px;
+            right: 60px;
         }
 
         .tof-7 {
-            bottom: 5px;
+            bottom: -60px;
             left: 50%;
             transform: translateX(-50%);
         }
@@ -550,12 +558,12 @@
                     <div class="info-value" id="gzDisplay">0</div>
                 </div>
                 <div class="info-box">
-                    <div class="info-label">Enc1</div>
+                    <div class="info-label">Distance Travelled</div>
                     <div class="info-value" id="enc1Display">0</div>
                 </div>
             </div>
 
-            <button class="reset-btn" onclick="resetPosition()">🔄 Reset</button>
+            <button class="reset-btn" onclick="resetPosition()">RESET</button>
         </div>
 
         <!-- RIGHT PANEL -->
@@ -564,7 +572,7 @@
             <!-- MPU Section -->
             <div class="mpu-section">
                 <div class="mpu-card linear">
-                    <div class="mpu-title">Linear Accel (m/s²)</div>
+                    <div class="mpu-title">Linear Acceleration (m/s²)</div>
                     <div class="mpu-values">
                         <div class="mpu-row">
                             <span class="mpu-label">AX:</span>
@@ -582,7 +590,7 @@
                 </div>
 
                 <div class="mpu-card gyro">
-                    <div class="mpu-title">Angular Vel (°/s)</div>
+                    <div class="mpu-title">Angular Velocity (°/s)</div>
                     <div class="mpu-values">
                         <div class="mpu-row">
                             <span class="mpu-label">GX:</span>
@@ -682,7 +690,7 @@
                             <span class="tof-value" id="tof7">0</span>
                         </div>
 
-                        <div class="rover-body">Rover</div>
+                        <div class="rover-body"></div>
                     </div>
                 </div>
             </div>
@@ -807,16 +815,26 @@
             ctx.shadowBlur = 0;
 
             // Draw direction indicator
-            const dirLength = 25;
-            const dirX = posX + Math.cos(-yaw * Math.PI / 180) * dirLength;
-            const dirY = posY + Math.sin(-yaw * Math.PI / 180) * dirLength;
+            // Draw direction arrow
+            ctx.save();
+            ctx.translate(posX, posY);
+            ctx.rotate(-yaw * Math.PI / 180);
 
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(posX, posY);
-            ctx.lineTo(dirX, dirY);
-            ctx.stroke();
+            ctx.moveTo(25, 0);      // Tip
+            ctx.lineTo(5, 6);       // Head Right
+            ctx.lineTo(5, 2);       // Shaft Right Start
+            ctx.lineTo(-35, 2);     // Tail Right
+            ctx.lineTo(-35, -2);    // Tail Left
+            ctx.lineTo(5, -2);      // Shaft Left Start
+            ctx.lineTo(5, -6);      // Head Left
+            ctx.closePath();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#000000';
+            ctx.shadowBlur = 5;
+            ctx.fill();
+            ctx.restore();
         }
 
         // ============================================
