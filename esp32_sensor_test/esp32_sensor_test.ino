@@ -10,7 +10,7 @@
  * Output format:
  * ax,ay,az,gx,gy,gz,e1,e2,e3,e4,e5,e6,t1,t2,t3,t4,t5
  */
-
+#include <ard
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_VL53L0X.h>
