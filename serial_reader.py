@@ -6,10 +6,9 @@ Usage:
     python serial_reader.py [PORT] [BAUD]
     
     Default: /dev/ttyUSB0 115200
-    
-Example:
-    python serial_reader.py /dev/ttyUSB0 115200
-    python serial_reader.py COM3 115200  (Windows)
+
+Expected ESP32 output format:
+    DATA:t_ms,ax,ay,az,gx,gy,gz,temp,left_ticks,right_ticks
 """
 
 import serial
@@ -23,10 +22,11 @@ import argparse
 # CONFIGURATION
 # ============================================
 
-DEFAULT_PORT = "/dev/ttyUSB0"  # Change to COM3 or similar on Windows
+DEFAULT_PORT = "/dev/ttyUSB0"
 DEFAULT_BAUD = 115200
 FLASK_URL = "http://localhost:5000/update"
 DATA_PREFIX = "DATA:"
+EXPECTED_VALUES = 14
 
 # ============================================
 # SERIAL READER
@@ -42,6 +42,9 @@ def read_serial_and_send(port, baud):
     print(f"  Serial Port:  {port}")
     print(f"  Baud Rate:    {baud}")
     print(f"  Flask Server: {FLASK_URL}")
+    print(f"  Expected CSV: {EXPECTED_VALUES} values")
+    print(f"  Format:       t_ms,ax,ay,az,gx,gy,gz,temp,")
+    print(f"                left_ticks,right_ticks,tof1-4")
     print(f"{'='*60}\n")
     
     # Open serial connection
@@ -72,40 +75,40 @@ def read_serial_and_send(port, baud):
     
     try:
         while True:
-            # Read a line from serial
             if ser.in_waiting > 0:
                 try:
                     line = ser.readline().decode('utf-8').strip()
                 except UnicodeDecodeError:
                     continue
                 
-                # Check if line looks like data
-                data = line
-                is_data = False
+                if not line:
+                    continue
+                
+                # Check if line is a DATA line
+                data = None
                 
                 if line.startswith(DATA_PREFIX):
                     data = line[len(DATA_PREFIX):]
-                    is_data = True
                 elif "," in line:
-                    # Check if it looks like our CSV data (at least 17 values)
-                    # 6 MPU + 6 Enc + 5 ToF = 17 values
-                    if len(data.split(',')) >= 17:
-                        is_data = True
-
-                # Print non-data lines (debug info)
-                if not is_data:
+                    parts = line.split(',')
+                    if len(parts) >= EXPECTED_VALUES:
+                        data = line
+                
+                # Print non-data lines (debug/status from ESP32)
+                if data is None:
                     print(f"[ESP32] {line}")
                     continue
 
-                # Process data
+                # Validate column count
                 parts = data.split(',')
                 
-                # Pad with zeros if we have fewer than 19 values (e.g. missing ToF sensors)
-                # App expects 19: 6 MPU + 6 Enc + 7 ToF
-                while len(parts) < 19:
-                    parts.append("0")
-                
-                data = ",".join(parts)
+                if len(parts) < EXPECTED_VALUES:
+                    while len(parts) < EXPECTED_VALUES:
+                        parts.append("0")
+                    data = ",".join(parts)
+                elif len(parts) > EXPECTED_VALUES:
+                    parts = parts[:EXPECTED_VALUES]
+                    data = ",".join(parts)
                 
                 # Send to Flask
                 try:
@@ -118,7 +121,6 @@ def read_serial_and_send(port, baud):
                         print(f"  Payload: {data}")
                 except requests.exceptions.RequestException as e:
                     packets_failed += 1
-                    # Only print occasional errors
                     if packets_failed % 10 == 1:
                         print(f"✗ Connection error: {e}")
                 

@@ -414,7 +414,7 @@
             font-size: 1.1rem;
         }
 
-        /* ToF Positions - 7 sensors */
+        /* ToF Positions - 4 sensors */
 
 
         .tof-3 {
@@ -427,22 +427,6 @@
             top: 50%;
             right: 30px;
             transform: translateY(-50%);
-        }
-
-        .tof-5 {
-            bottom: -60px;
-            left: 60px;
-        }
-
-        .tof-6 {
-            bottom: -60px;
-            right: 60px;
-        }
-
-        .tof-7 {
-            bottom: -60px;
-            left: 50%;
-            transform: translateX(-50%);
         }
 
         /* Responsive */
@@ -622,37 +606,21 @@
 
                 <!-- Encoder Panel -->
                 <div class="encoder-panel">
-                    <div class="encoder-title">Encoders</div>
+                    <div class="encoder-title">Encoders (Δ ticks/interval)</div>
 
                     <div class="encoder-group">
-                        <div class="encoder-group-title">Left Wheels</div>
+                        <div class="encoder-group-title">Left (avg of 3)</div>
                         <div class="encoder-item">
-                            <span class="encoder-label">E1:</span>
-                            <span class="encoder-value" id="enc1">0</span>
-                        </div>
-                        <div class="encoder-item">
-                            <span class="encoder-label">E2:</span>
-                            <span class="encoder-value" id="enc2">0</span>
-                        </div>
-                        <div class="encoder-item">
-                            <span class="encoder-label">E3:</span>
-                            <span class="encoder-value" id="enc3">0</span>
+                            <span class="encoder-label">L:</span>
+                            <span class="encoder-value" id="leftTicks">0</span>
                         </div>
                     </div>
 
                     <div class="encoder-group">
-                        <div class="encoder-group-title">Right Wheels</div>
+                        <div class="encoder-group-title">Right (avg of 3)</div>
                         <div class="encoder-item">
-                            <span class="encoder-label">E4:</span>
-                            <span class="encoder-value" id="enc4">0</span>
-                        </div>
-                        <div class="encoder-item">
-                            <span class="encoder-label">E5:</span>
-                            <span class="encoder-value" id="enc5">0</span>
-                        </div>
-                        <div class="encoder-item">
-                            <span class="encoder-label">E6:</span>
-                            <span class="encoder-value" id="enc6">0</span>
+                            <span class="encoder-label">R:</span>
+                            <span class="encoder-value" id="rightTicks">0</span>
                         </div>
                     </div>
                 </div>
@@ -676,18 +644,6 @@
                         <div class="tof-sensor tof-4">
                             <span class="tof-label">R</span>
                             <span class="tof-value" id="tof4">0</span>
-                        </div>
-                        <div class="tof-sensor tof-5">
-                            <span class="tof-label">BL</span>
-                            <span class="tof-value" id="tof5">0</span>
-                        </div>
-                        <div class="tof-sensor tof-6">
-                            <span class="tof-label">BR</span>
-                            <span class="tof-value" id="tof6">0</span>
-                        </div>
-                        <div class="tof-sensor tof-7">
-                            <span class="tof-label">BC</span>
-                            <span class="tof-value" id="tof7">0</span>
                         </div>
 
                         <div class="rover-body"></div>
@@ -888,31 +844,24 @@
                 document.getElementById('gy').innerText = parseFloat(d.gy).toFixed(2);
                 document.getElementById('gz').innerText = parseFloat(d.gz).toFixed(2);
 
-                // Update 6 Encoders
-                document.getElementById('enc1').innerText = d.enc1;
-                document.getElementById('enc2').innerText = d.enc2;
-                document.getElementById('enc3').innerText = d.enc3;
-                document.getElementById('enc4').innerText = d.enc4;
-                document.getElementById('enc5').innerText = d.enc5;
-                document.getElementById('enc6').innerText = d.enc6;
+                // Update Encoders (averaged ticks)
+                document.getElementById('leftTicks').innerText = parseFloat(d.left_ticks).toFixed(1);
+                document.getElementById('rightTicks').innerText = parseFloat(d.right_ticks).toFixed(1);
 
-                // Update 7 ToF Sensors
+                // Update 4 ToF Sensors
                 document.getElementById('tof1').innerText = d.tof1;
                 document.getElementById('tof2').innerText = d.tof2;
                 document.getElementById('tof3').innerText = d.tof3;
                 document.getElementById('tof4').innerText = d.tof4;
-                document.getElementById('tof5').innerText = d.tof5;
-                document.getElementById('tof6').innerText = d.tof6;
-                document.getElementById('tof7').innerText = d.tof7;
 
                 // Update info display
                 const yawVal = parseFloat(d.yaw) || 0;
                 document.getElementById('yawAngle').innerText = yawVal.toFixed(1) + '°';
                 document.getElementById('gzDisplay').innerText = parseFloat(d.gz).toFixed(1);
-                document.getElementById('enc1Display').innerText = d.enc1;
+                document.getElementById('enc1Display').innerText = parseFloat(d.enc_left).toFixed(0);
 
-                // Update position on map (uses enc1 for distance, yaw for direction)
-                updatePosition(parseInt(d.enc1) || 0, yawVal);
+                // Update position on map (uses accumulated enc_left for distance, yaw for direction)
+                updatePosition(parseFloat(d.enc_left) || 0, yawVal);
 
             } catch (e) {
                 console.log('Fetch error:', e);

@@ -2,8 +2,8 @@
 Beetle Dashboard - Flask Application
 Robot Telemetry Dashboard
 
-Data Format (19 values as comma-separated string):
-ax,ay,az,gx,gy,gz,enc1,enc2,enc3,enc4,enc5,enc6,tof1,tof2,tof3,tof4,tof5,tof6,tof7
+Data Format (14 values as comma-separated string, prefixed with DATA:):
+t_ms,ax,ay,az,gx,gy,gz,temp,left_ticks,right_ticks,tof1,tof2,tof3,tof4
 
 Send data via POST to /update endpoint.
 """
@@ -18,31 +18,31 @@ app = Flask(__name__)
 # SENSOR DATA STORAGE
 # ============================================
 sensor_data = {
+    # Timestamp from ESP32 (ms)
+    't_ms': 0,
     # MPU6050 Linear Acceleration (m/s²)
     'ax': 0.0,
     'ay': 0.0,
     'az': 0.0,
-    # MPU6050 Angular Velocity (°/s)
+    # MPU6050 Angular Velocity (rad/s)
     'gx': 0.0,
     'gy': 0.0,
     'gz': 0.0,
-    # 6 Encoders (3 left wheels + 3 right wheels)
-    'enc1': 0,
-    'enc2': 0,
-    'enc3': 0,
-    'enc4': 0,
-    'enc5': 0,
-    'enc6': 0,
-    # 7 ToF Sensors (distances in mm)
+    # MPU6050 Temperature (°C)
+    'temp': 0.0,
+    # Averaged encoder delta ticks per interval
+    'left_ticks': 0.0,
+    'right_ticks': 0.0,
+    # 4 ToF Sensors (distances in mm)
     'tof1': 0,
     'tof2': 0,
     'tof3': 0,
     'tof4': 0,
-    'tof5': 0,
-    'tof6': 0,
-    'tof7': 0,
     # Calculated yaw from gz integration
     'yaw': 0.0,
+    # Cumulative encoder ticks (for map position tracking)
+    'enc_left': 0.0,
+    'enc_right': 0.0,
 }
 
 # Thread lock for safe data access
@@ -58,15 +58,15 @@ last_update_time = time.time()
 def parse_sensor_string(data_string):
     """
     Parse comma-separated sensor data string.
-    Format: ax,ay,az,gx,gy,gz,enc1,enc2,enc3,enc4,enc5,enc6,tof1,tof2,tof3,tof4,tof5,tof6,tof7
+    Format: t_ms,ax,ay,az,gx,gy,gz,temp,left_ticks,right_ticks,tof1,tof2,tof3,tof4
     """
     global sensor_data, last_update_time
     
     try:
         values = data_string.strip().split(',')
         
-        if len(values) != 19:
-            print(f"Error: Expected 19 values, got {len(values)}")
+        if len(values) != 14:
+            print(f"Error: Expected 14 values, got {len(values)}")
             return False
         
         # Calculate time delta for yaw integration
@@ -75,35 +75,40 @@ def parse_sensor_string(data_string):
         last_update_time = current_time
         
         with data_lock:
-            # MPU6050 - Linear Acceleration
-            sensor_data['ax'] = float(values[0])
-            sensor_data['ay'] = float(values[1])
-            sensor_data['az'] = float(values[2])
+            # Timestamp
+            sensor_data['t_ms'] = int(float(values[0]))
             
-            # MPU6050 - Angular Velocity
-            sensor_data['gx'] = float(values[3])
-            sensor_data['gy'] = float(values[4])
-            sensor_data['gz'] = float(values[5])
+            # MPU6050 - Linear Acceleration (m/s²)
+            sensor_data['ax'] = float(values[1])
+            sensor_data['ay'] = float(values[2])
+            sensor_data['az'] = float(values[3])
             
-            # 6 Encoders
-            sensor_data['enc1'] = int(float(values[6]))
-            sensor_data['enc2'] = int(float(values[7]))
-            sensor_data['enc3'] = int(float(values[8]))
-            sensor_data['enc4'] = int(float(values[9]))
-            sensor_data['enc5'] = int(float(values[10]))
-            sensor_data['enc6'] = int(float(values[11]))
+            # MPU6050 - Angular Velocity (rad/s)
+            sensor_data['gx'] = float(values[4])
+            sensor_data['gy'] = float(values[5])
+            sensor_data['gz'] = float(values[6])
             
-            # 7 ToF Sensors
-            sensor_data['tof1'] = int(float(values[12]))
-            sensor_data['tof2'] = int(float(values[13]))
-            sensor_data['tof3'] = int(float(values[14]))
-            sensor_data['tof4'] = int(float(values[15]))
-            sensor_data['tof5'] = int(float(values[16]))
-            sensor_data['tof6'] = int(float(values[17]))
-            sensor_data['tof7'] = int(float(values[18]))
+            # MPU6050 - Temperature (°C)
+            sensor_data['temp'] = float(values[7])
+            
+            # Averaged encoder delta ticks
+            sensor_data['left_ticks'] = float(values[8])
+            sensor_data['right_ticks'] = float(values[9])
+            
+            # Accumulate encoder ticks (for map position tracking)
+            sensor_data['enc_left'] += sensor_data['left_ticks']
+            sensor_data['enc_right'] += sensor_data['right_ticks']
+            
+            # 4 ToF Sensors (mm)
+            sensor_data['tof1'] = int(float(values[10]))
+            sensor_data['tof2'] = int(float(values[11]))
+            sensor_data['tof3'] = int(float(values[12]))
+            sensor_data['tof4'] = int(float(values[13]))
             
             # Integrate gz to get yaw angle
-            sensor_data['yaw'] += sensor_data['gz'] * dt
+            # gz is in rad/s, convert to deg/s for yaw display
+            gz_dps = sensor_data['gz'] * 57.2958  # rad/s -> deg/s
+            sensor_data['yaw'] += gz_dps * dt
             sensor_data['yaw'] = sensor_data['yaw'] % 360
         
         return True
@@ -135,7 +140,7 @@ def update_data():
     """
     POST - Receive sensor data from ESP/RPi.
     
-    Format: ax,ay,az,gx,gy,gz,enc1,enc2,enc3,enc4,enc5,enc6,tof1,tof2,tof3,tof4,tof5,tof6,tof7
+    Format: t_ms,ax,ay,az,gx,gy,gz,temp,left_ticks,right_ticks,tof1,tof2,tof3,tof4
     """
     try:
         data_string = request.get_data(as_text=True)
@@ -152,10 +157,12 @@ def update_data():
 
 @app.route('/reset', methods=['POST'])
 def reset_position():
-    """Reset yaw angle."""
+    """Reset yaw angle and accumulated encoder counts."""
     global sensor_data
     with data_lock:
         sensor_data['yaw'] = 0.0
+        sensor_data['enc_left'] = 0.0
+        sensor_data['enc_right'] = 0.0
     return jsonify({'status': 'ok'})
 
 
@@ -178,11 +185,11 @@ if __name__ == '__main__':
     print("  Update Data:   POST http://localhost:5000/update")
     print("  Reset:         POST http://localhost:5000/reset")
     print("="*60)
-    print("\n  Data Format (19 values, comma-separated):")
-    print("  ax,ay,az,gx,gy,gz,enc1,enc2,enc3,enc4,enc5,enc6,")
-    print("  tof1,tof2,tof3,tof4,tof5,tof6,tof7")
+    print("\n  Data Format (14 values, comma-separated):")
+    print("  t_ms,ax,ay,az,gx,gy,gz,temp,")
+    print("  left_ticks,right_ticks,tof1,tof2,tof3,tof4")
     print("\n  Test with curl:")
-    print('  curl -X POST -d "1,2,3,4,5,6,100,101,102,103,104,105,50,60,70,80,90,100,110" http://localhost:5000/update')
+    print('  curl -X POST -d "1000,0.1,0.2,9.8,0.01,0.02,0.03,25.5,5.33,5.67,120,130,140,150" http://localhost:5000/update')
     print("="*60 + "\n")
     
     app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
